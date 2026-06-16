@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0f" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Companion" />
+  <title>Caring Companion</title>
+  <link rel="manifest" href="manifest.json" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    :root { --accent: #818cf8; --bg0: #0a0a0f; --bg1: #161b22; }
+    html, body { height: 100%; background: var(--bg0); color: #fff; font-family: 'Georgia', serif; overscroll-behavior: none; }
+    #app { min-height: 100dvh; display: flex; flex-direction: column; padding: env(safe-area-inset-top, 0) 0 env(safe-area-inset-bottom, 0); position: relative; overflow: hidden; }
+    #bg-base { position: fixed; inset: 0; transition: background 2s ease; z-index: 0; }
+    #bg-glow { position: fixed; top: -100px; right: -100px; width: 300px; height: 300px; border-radius: 50%; filter: blur(60px); opacity: 0.08; animation: pulse 5s ease-in-out infinite; z-index: 0; transition: background 2s ease; }
+    @keyframes pulse { 0%,100% { transform: scale(1); opacity: 0.06; } 50% { transform: scale(1.1); opacity: 0.11; } }
+    #stars { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+    .star { position: absolute; border-radius: 50%; background: #fff; animation: twinkle var(--dur, 3s) ease-in-out infinite; animation-delay: var(--delay, 0s); }
+    @keyframes twinkle { 0%,100% { opacity: 0.15; } 50% { opacity: 0.75; } }
+    #scroll { position: relative; z-index: 1; flex: 1; overflow-y: auto; padding: 56px 24px 32px; -webkit-overflow-scrolling: touch; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+    .period-label { font-family: monospace; font-size: 11px; letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 8px; color: var(--accent); transition: color 1.5s; }
+    .clock { font-size: 54px; font-weight: 200; letter-spacing: -2px; line-height: 1; color: #fff; }
+    .date { font-family: monospace; font-size: 11px; color: #ffffff40; margin-top: 6px; letter-spacing: 0.5px; }
+    #bell-btn { width: 48px; height: 48px; border-radius: 50%; border: 1px solid #ffffff18; background: #ffffff08; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 6px; transition: border-color 0.3s, background 0.3s; }
+    #bell-btn:active { transform: scale(0.93); }
+    .divider { height: 1px; background: linear-gradient(to right, var(--accent), transparent); margin: 22px 0; opacity: 0.35; transition: background 1.5s; }
+    #msg-card { border: 1px solid #ffffff0f; border-radius: 22px; background: #ffffff07; padding: 26px 22px; min-height: 110px; display: flex; align-items: center; margin-bottom: 18px; backdrop-filter: blur(6px); }
+    #msg-text { font-size: 19px; line-height: 1.7; font-style: italic; color: #ffffffdd; opacity: 0; transition: opacity 0.7s ease; }
+    #msg-text.visible { opacity: 1; }
+    .loading-row { display: flex; align-items: center; gap: 12px; }
+    .spinner { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #ffffff18; border-top-color: var(--accent); animation: spin 0.8s linear infinite; flex-shrink: 0; transition: border-top-color 1.5s; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-size: 14px; color: #ffffff44; font-style: italic; }
+    #refresh-btn { width: 100%; padding: 15px; border-radius: 50px; border: 1px solid #ffffff18; background: #ffffff0a; color: var(--accent); font-family: monospace; font-size: 13px; letter-spacing: 1.5px; cursor: pointer; margin-bottom: 14px; transition: color 1.5s, transform 0.15s, opacity 0.15s; }
+    #refresh-btn:active { transform: scale(0.97); opacity: 0.7; }
+    #refresh-btn:disabled { opacity: 0.4; cursor: default; }
+    #install-banner { display: none; background: #ffffff0d; border: 1px solid #ffffff14; border-radius: 16px; padding: 14px 18px; margin-bottom: 14px; gap: 12px; align-items: center; }
+    #install-banner.show { display: flex; }
+    #install-banner p { font-size: 13px; color: #ffffffbb; flex: 1; line-height: 1.5; }
+    #install-btn { background: var(--accent); color: #000; border: none; border-radius: 20px; padding: 8px 16px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: background 1.5s; }
+    #install-btn:active { opacity: 0.8; }
+    #history-toggle { background: none; border: none; color: #ffffff33; font-family: monospace; font-size: 11px; letter-spacing: 1px; cursor: pointer; width: 100%; padding: 8px 0; margin-bottom: 10px; }
+    #history-toggle:active { opacity: 0.6; }
+    #history-list { display: none; }
+    #history-list.open { display: block; }
+    .h-item { border-left: 2px solid var(--accent); padding: 6px 0 6px 14px; margin-bottom: 14px; opacity: 0.6; transition: border-color 1.5s; }
+    .h-time { font-family: monospace; font-size: 10px; color: var(--accent); margin-bottom: 4px; letter-spacing: 0.5px; transition: color 1.5s; }
+    .h-msg { font-size: 13px; color: #ffffffaa; font-style: italic; line-height: 1.6; }
+    .h-empty { font-size: 13px; color: #ffffff28; font-style: italic; text-align: center; padding: 16px; }
+    #toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px); background: #1e1e2e; border: 1px solid #ffffff18; border-radius: 24px; padding: 10px 20px; font-size: 13px; color: #ffffffcc; opacity: 0; transition: opacity 0.3s, transform 0.3s; pointer-events: none; z-index: 99; white-space: nowrap; }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="bg-base"></div>
+  <div id="bg-glow"></div>
+  <div id="stars"></div>
+  <div id="scroll">
+    <div class="header">
+      <div>
+        <div class="period-label" id="period-label">⏳ Loading</div>
+        <div class="clock" id="clock">--:--</div>
+        <div class="date" id="date-label"></div>
+      </div>
+      <button id="bell-btn" title="Toggle reminders" onclick="toggleNotif()">🔕</button>
+    </div>
+    <div class="divider"></div>
+    <div id="install-banner">
+      <p>Add to your home screen for quick access anytime.</p>
+      <button id="install-btn" onclick="installApp()">Install</button>
+    </div>
+    <div id="msg-card">
+      <div class="loading-row" id="loading-row">
+        <div class="spinner"></div>
+        <span class="loading-text">Thinking of you…</span>
+      </div>
+      <div id="msg-text"></div>
+    </div>
+    <button id="refresh-btn" onclick="fetchMessage()">↻ &nbsp; New message</button>
+    <button id="history-toggle" onclick="toggleHistory()">▼ &nbsp; Past messages</button>
+    <div id="history-list"></div>
+    <div style="height:40px"></div>
+  </div>
+</div>
+<div id="toast"></div>
+<script>
+const PERIODS = {
+  early_morning: { label:"Early Morning", emoji:"🌅", accent:"#c084fc", bg0:"#1a1a2e", bg1:"#2d1b4e", stars:true },
+  morning:       { label:"Morning",       emoji:"☀️",  accent:"#60a5fa", bg0:"#0f2027", bg1:"#2c5364", stars:false },
+  midday:        { label:"Midday",        emoji:"🌤️",  accent:"#34d399", bg0:"#0f0c29", bg1:"#24243e", stars:false },
+  afternoon:     { label:"Afternoon",     emoji:"🌞",  accent:"#60a5fa", bg0:"#1a1a2e", bg1:"#0f3460", stars:false },
+  evening:       { label:"Evening",       emoji:"🌇",  accent:"#a78bfa", bg0:"#0d0d0d", bg1:"#2d1b4e", stars:false },
+  night:         { label:"Night",         emoji:"🌙",  accent:"#818cf8", bg0:"#0a0a0f", bg1:"#161b22", stars:true },
+  late_night:    { label:"Late Night",    emoji:"😴",  accent:"#6366f1", bg0:"#000000", bg1:"#0d0d1a", stars:true },
+};
+const PROMPTS = {
+  early_morning:"It's early morning. Write a warm, gentle encouraging message to someone just starting their day. 1-2 sentences. No quotes. No 'I'.",
+  morning:      "It's morning. Write an uplifting message to help someone ease into their day. 1-2 sentences. No quotes. No 'I'.",
+  midday:       "It's midday. Write a thoughtful check-in about lunch or not overworking. 1-2 sentences. No quotes. No 'I'.",
+  afternoon:    "It's afternoon. Write an encouraging message about hydration or finishing strong. 1-2 sentences. No quotes. No 'I'.",
+  evening:      "It's evening. Write a warm wind-down message. 1-2 sentences. No quotes. No 'I'.",
+  night:        "It's late. Gently remind someone to rest. Warm, not nagging. 1-2 sentences. No quotes. No 'I'.",
+  late_night:   "It's very late and someone is still on their phone. Caring nudge to sleep. 1-2 sentences. No quotes. No 'I'.",
+};
+function getPeriod() {
+  const h = new Date().getHours();
+  if (h >= 5  && h < 9)  return "early_morning";
+  if (h >= 9  && h < 12) return "morning";
+  if (h >= 12 && h < 14) return "midday";
+  if (h >= 14 && h < 17) return "afternoon";
+  if (h >= 17 && h < 20) return "evening";
+  if (h >= 20 && h < 23) return "night";
+  return "late_night";
+}
+let loading = false, historyOpen = false, notifOn = false, deferredPrompt = null;
+let history = JSON.parse(localStorage.getItem("cc_history") || "[]");
+function applyTheme(period) {
+  const t = PERIODS[period];
+  document.documentElement.style.setProperty("--accent", t.accent);
+  document.getElementById("bg-base").style.background = t.bg0;
+  document.getElementById("bg-glow").style.background = t.accent;
+  document.getElementById("period-label").textContent = t.emoji + "  " + t.label;
+  const starsEl = document.getElementById("stars");
+  starsEl.innerHTML = "";
+  if (t.stars) {
+    for (let i = 0; i < 28; i++) {
+      const s = document.createElement("div");
+      s.className = "star";
+      const sz = Math.random() * 2 + 1;
+      s.style.cssText = `width:${sz}px;height:${sz}px;top:${Math.random()*100}%;left:${Math.random()*100}%;--dur:${(Math.random()*3+2).toFixed(1)}s;--delay:${(Math.random()*3).toFixed(1)}s`;
+      starsEl.appendChild(s);
+    }
+  }
+}
+function updateClock() {
+  const now = new Date();
+  document.getElementById("clock").textContent = now.toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" });
+  document.getElementById("date-label").textContent = now.toLocaleDateString([], { weekday:"long", month:"long", day:"numeric" });
+}
+async function fetchMessage() {
+  if (loading) return;
+  loading = true;
+  const period = getPeriod();
+  applyTheme(period);
+  const msgText = document.getElementById("msg-text");
+  const loadRow = document.getElementById("loading-row");
+  const btn = document.getElementById("refresh-btn");
+  msgText.classList.remove("visible");
+  msgText.textContent = "";
+  loadRow.style.display = "flex";
+  btn.disabled = true;
+  btn.textContent = "…";
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1000,
+        system: "You are a warm, caring companion who genuinely cares about someone's wellbeing. Speak naturally and warmly — never preachy, never robotic. Each message must feel fresh and personal.",
+        messages: [{ role:"user", content: PROMPTS[period] }]
+      })
+    });
+    const data = await res.json();
+    const text = (data.content||[]).map(b => b.text||"").join("") || "You're doing better than you think. 💙";
+    loadRow.style.display = "none";
+    msgText.textContent = text;
+    setTimeout(() => msgText.classList.add("visible"), 30);
+    const entry = { message: text, period: PERIODS[period].label, time: new Date().toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" }), ts: Date.now() };
+    history = [entry, ...history].slice(0, 30);
+    localStorage.setItem("cc_history", JSON.stringify(history));
+    renderHistory();
+  } catch(e) {
+    loadRow.style.display = "none";
+    msgText.textContent = "Take a breath. You matter, and you're doing okay. 💙";
+    setTimeout(() => msgText.classList.add("visible"), 30);
+  }
+  btn.disabled = false;
+  btn.textContent = "↻   New message";
+  loading = false;
+}
+function renderHistory() {
+  const el = document.getElementById("history-list");
+  if (!history.length) { el.innerHTML = `<p class="h-empty">No past messages yet.</p>`; return; }
+  el.innerHTML = history.map(h => `<div class="h-item"><div class="h-time">${h.time} · ${h.period}</div><div class="h-msg">${h.message}</div></div>`).join("");
+}
+function toggleHistory() {
+  historyOpen = !historyOpen;
+  document.getElementById("history-list").classList.toggle("open", historyOpen);
+  document.getElementById("history-toggle").textContent = historyOpen ? "▲  Past messages" : "▼  Past messages";
+  if (historyOpen) renderHistory();
+}
+async function toggleNotif() {
+  const btn = document.getElementById("bell-btn");
+  if (notifOn) { notifOn = false; btn.textContent = "🔕"; showToast("Reminders turned off"); return; }
+  if (!("Notification" in window)) { showToast("Notifications not supported"); return; }
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") { showToast("Please allow notifications in settings"); return; }
+  notifOn = true; btn.textContent = "🔔"; showToast("Reminders on! 💙"); scheduleNotifs();
+}
+function scheduleNotifs() {
+  const schedule = [
+    { h:7,  m:30, title:"Good morning ☀️",     body:"A new day — take it gently." },
+    { h:12, m:0,  title:"Midday check-in 🌤️",  body:"Have you eaten and had water?" },
+    { h:15, m:0,  title:"Afternoon nudge 🌞",   body:"Stretch a little. Your body needs it." },
+    { h:18, m:0,  title:"Evening wind-down 🌇", body:"Start wrapping up. You've done enough." },
+    { h:22, m:0,  title:"Time to rest 🌙",      body:"Put the phone down. Sleep heals." },
+  ];
+  const now = new Date();
+  schedule.forEach(({ h, m, title, body }) => {
+    const target = new Date(); target.setHours(h, m, 0, 0);
+    if (target <= now) target.setDate(target.getDate() + 1);
+    setTimeout(() => { if (notifOn) { new Notification(title, { body }); setTimeout(scheduleNotifs, 500); } }, target - now);
+  });
+}
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferredPrompt = e; document.getElementById("install-banner").classList.add("show"); });
+async function installApp() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById("install-banner").classList.remove("show");
+  if (outcome === "accepted") showToast("App installed! 🎉");
+}
+window.addEventListener("appinstalled", () => { document.getElementById("install-banner").classList.remove("show"); showToast("Caring Companion installed 💙"); });
+function showToast(msg) { const t = document.getElementById("toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 3000); }
+updateClock();
+setInterval(() => { updateClock(); applyTheme(getPeriod()); }, 30000);
+applyTheme(getPeriod());
+fetchMessage();
+if ("serviceWorker" in navigator) { navigator.serviceWorker.register("sw.js").catch(() => {}); }
+</script>
+</body>
+</html>
